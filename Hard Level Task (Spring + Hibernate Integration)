@@ -1,0 +1,250 @@
+1. pom.xml
+
+<dependencies>
+    <!-- Spring Core -->
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-context</artifactId>
+        <version>5.3.20</version>
+    </dependency>
+
+    <!-- Hibernate Core -->
+    <dependency>
+        <groupId>org.hibernate</groupId>
+        <artifactId>hibernate-core</artifactId>
+        <version>5.6.14.Final</version>
+    </dependency>
+
+    <!-- MySQL JDBC -->
+    <dependency>
+        <groupId>mysql</groupId>
+        <artifactId>mysql-connector-java</artifactId>
+        <version>8.0.33</version>
+    </dependency>
+
+    <!-- JPA -->
+    <dependency>
+        <groupId>jakarta.persistence</groupId>
+        <artifactId>jakarta.persistence-api</artifactId>
+        <version>2.2.3</version>
+    </dependency>
+</dependencies>
+
+
+2. hibernate.cfg.xml
+
+<hibernate-configuration>
+    <session-factory>
+        <property name="hibernate.connection.driver_class">com.mysql.cj.jdbc.Driver</property>
+        <property name="hibernate.connection.url">jdbc:mysql://localhost:3306/studentdb</property>
+        <property name="hibernate.connection.username">root</property>
+        <property name="hibernate.connection.password">yourpassword</property>
+
+        <property name="hibernate.dialect">org.hibernate.dialect.MySQL8Dialect</property>
+        <property name="hibernate.hbm2ddl.auto">update</property>
+        <property name="show_sql">true</property>
+
+        <mapping class="com.example.entity.Student"/>
+    </session-factory>
+</hibernate-configuration>
+
+
+// 3. Student Entity
+
+package com.example.entity;
+
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "student")
+public class Student {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
+
+    private String name;
+    private int age;
+
+    public Student() {}
+    public Student(String name, int age) {
+        this.name = name;
+        this.age = age;
+    }
+
+    @Override
+    public String toString() {
+        return "Student{id=" + id + ", name='" + name + "', age=" + age + "}";
+    }
+}
+
+4. StudentDAO.java
+
+package com.example.dao;
+
+import com.example.entity.Student;
+import java.util.List;
+
+public interface StudentDAO {
+    void saveStudent(Student student);
+    Student getStudent(int id);
+    List<Student> getAllStudents();
+    void updateStudent(Student student);
+    void deleteStudent(int id);
+}
+
+
+ 5. StudentDAO Implementation
+
+package com.example.dao;
+
+import com.example.entity.Student;
+import org.hibernate.SessionFactory;
+import org.hibernate.Session;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public class StudentDAOImpl implements StudentDAO {
+
+    @Autowired
+    private SessionFactory sessionFactory;
+
+    private Session getSession() {
+        return sessionFactory.getCurrentSession();
+    }
+
+    public void saveStudent(Student student) {
+        getSession().beginTransaction();
+        getSession().save(student);
+        getSession().getTransaction().commit();
+    }
+
+    public Student getStudent(int id) {
+        getSession().beginTransaction();
+        Student student = getSession().get(Student.class, id);
+        getSession().getTransaction().commit();
+        return student;
+    }
+
+    public List<Student> getAllStudents() {
+        getSession().beginTransaction();
+        List<Student> list = getSession().createQuery("from Student", Student.class).list();
+        getSession().getTransaction().commit();
+        return list;
+    }
+
+    public void updateStudent(Student student) {
+        getSession().beginTransaction();
+        getSession().update(student);
+        getSession().getTransaction().commit();
+    }
+
+    public void deleteStudent(int id) {
+        getSession().beginTransaction();
+        Student s = getSession().get(Student.class, id);
+        if (s != null) getSession().delete(s);
+        getSession().getTransaction().commit();
+    }
+}
+
+
+ 6. StudentService.java
+
+package com.example.service;
+
+import com.example.dao.StudentDAO;
+import com.example.entity.Student;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class StudentService {
+
+    @Autowired
+    private StudentDAO studentDAO;
+
+    public void create(Student student) {
+        studentDAO.saveStudent(student);
+    }
+
+    public Student read(int id) {
+        return studentDAO.getStudent(id);
+    }
+
+    public List<Student> readAll() {
+        return studentDAO.getAllStudents();
+    }
+
+    public void update(Student student) {
+        studentDAO.updateStudent(student);
+    }
+
+    public void delete(int id) {
+        studentDAO.deleteStudent(id);
+    }
+}
+
+// 7. AppConfig.java
+
+package com.example.config;
+
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration as SpringConfig;
+
+@SpringConfig
+@ComponentScan(basePackages = "com.example")
+public class AppConfig {
+
+    @Bean
+    public SessionFactory sessionFactory() {
+        return new Configuration()
+                .configure("hibernate.cfg.xml")
+                .buildSessionFactory();
+    }
+}
+
+ 8. MainApp.java
+
+package com.example;
+
+import com.example.config.AppConfig;
+import com.example.entity.Student;
+import com.example.service.StudentService;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
+public class MainApp {
+    public static void main(String[] args) {
+        AnnotationConfigApplicationContext context =
+                new AnnotationConfigApplicationContext(AppConfig.class);
+
+        StudentService service = context.getBean(StudentService.class);
+
+        // CREATE
+        Student s1 = new Student("Aarav", 21);
+        service.create(s1);
+
+        // READ
+        System.out.println(service.read(s1.getId()));
+
+        // UPDATE
+        s1.setAge(22);
+        service.update(s1);
+
+        // DELETE
+        service.delete(s1.getId());
+
+        context.close();
+    }
+}
+
+
+//SQL
+
+CREATE DATABASE studentdb;
